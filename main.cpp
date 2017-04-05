@@ -22,16 +22,38 @@ float max_steerangle = 40;
 int steeringLeftHandle, steeringRightHandle,motorLeftHandle,motorRightHandle, targethandle, GPS ;  
 
 struct state{
-	float x,y,heading,steer_angle,velocity;
-}
+	float x[],y[],heading[],steer_angle[],velocity[];
+};
 struct dynamics{
 	float x,y,heading,steer_angle,velocity;
-}
+};
 struct control{
-	float acceleration,steer_vel;
+	float acceleration[],steer_vel[];
+};
+struct control_parameters{
+	float a1, b1, c1, a2, b2, c2;
+};
+void compute_v(state v, float accel[], int i){
+	v.velocity[i] = v.velocity[0] + accel;
 }
+void compute_a(control control, control_parameters params, float tg, float step_size){
+	for (int i = 0; i < tg; ++i)
+	{
+		control.acceleration[i] = params.a2 + 2*params.b2*step_size*i + 3*params.c2*pow(step_size*i ,2) ;
+		if(control.acceleration[i] > max_accel){
+			control.acceleration[i] = max_accel;
+		}
+		if(control.acceleration[i] < -max_accel){
+			control.acceleration[i] = -max_accel;
+		}
 
+	}
 
+	 
+}
+void compute_u(){
+
+}
 void accelerate(int ID ,float accel_input,float angular_vel, float current_vel, float delta_t){
 	if(current_vel < max_speed){
         angular_vel = angular_vel + ((accel_input*delta_t)/wheel_radius); 
@@ -60,7 +82,7 @@ void brake(int ID ,float brake_input,float angular_vel, float current_vel, float
  			//simxStopSimulation(ID, simx_opmode_oneshot);
  		}             	
  		//return(angular_vel);
-}
+} 
 void steer(int ID, float desiredSteeringAngle){
 	
 	float theta;
@@ -100,7 +122,7 @@ int main(int argc,char* argv[])
         //auto time_start = get_time::now();
         float curr_pos[7], targetpos[5];  // x,y,z,theta,vel 
         targetpos[4] = 0;
-        float accel = 199*2. 5, deccel = 50;
+        float accel = 199*2.5, deccel = 50;
 
         float ang_vel = 0.0;  // angular velocity of wheel joint
         float curr_vel = 0.0;
