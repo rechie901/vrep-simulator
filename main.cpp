@@ -34,6 +34,9 @@ struct control{
 struct control_parameters{
 	float a1, b1, c1, a2, b2, c2;
 };
+struct terminal_states{
+	float x, y, heading, steer_angle, velocity;
+};
 void compute_v(state v, control accel, float step_size, float tg){
 	float init_vel = v.velocity[0];
 	for (int i = 0; i < tg; ++i)
@@ -70,7 +73,9 @@ void compute_states(state v, float step_size, float tg){
 	float init_x = v.x[0], init_y = v.y[0], init_heading = v.heading[0]; 
 	for (int i = 0; i < tg; ++i)
 	{
-		v.x[i] = init_x +  ///////////// ---- here
+		v.heading[i] = init_heading + v.velocity[i] * tan(v.steer_angle[i])*step_size/l;
+		v.x[i] = init_x + v.velocity[i] * cos(v.heading[i]) * step_size;  ///////////// ---- here
+		v.y[i] = init_y + v.velocity[i] * sin(v.heading[i]) * step_size;
 	}
 }
 void compute_u(control control, control_parameters params, float tg, float step_size){
@@ -95,9 +100,12 @@ void compute_u(control control, control_parameters params, float tg, float step_
 
 	 
 }
-// void compute_u(){
+void compute_j(terminal_states t_state, state final, float j, float beta[4], int tg)
+{
+	j = sqrt(beta[0] * (final.x[tg] - t_state.x)*(final.x[tg] - t_state.x) + beta[1]*(final.y[tg] - t_state.y)*(final.y[tg] - t_state.y) + beta[2]*(final.velocity[tg] - t_state.velocity)*(final.velocity[tg] - t_state.velocity) + beta[3]*(final.heading[tg] - t_state.heading)*(final.heading[tg] - t_state.heading));
 
-// }
+}
+
 void accelerate(int ID ,float accel_input,float angular_vel, float current_vel, float delta_t){
 	if(current_vel < max_speed){
         angular_vel = angular_vel + ((accel_input*delta_t)/wheel_radius); 
