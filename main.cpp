@@ -18,6 +18,7 @@ float l=0.3222; //-- l=distance between front and rear wheels
 float max_speed = 1.0; // m/s
 float max_accel = 1.0;
 float max_brake = 1.0; // m/(s*s)
+float max_steervel = 1.0;
 float max_steerangle = 40; 
 int steeringLeftHandle, steeringRightHandle,motorLeftHandle,motorRightHandle, targethandle, GPS ;  
 
@@ -33,27 +34,70 @@ struct control{
 struct control_parameters{
 	float a1, b1, c1, a2, b2, c2;
 };
-void compute_v(state v, float accel[], int i){
-	v.velocity[i] = v.velocity[0] + accel;
+void compute_v(state v, control accel, float step_size, float tg){
+	float init_vel = v.velocity[0];
+	for (int i = 0; i < tg; ++i)
+	{
+		v.velocity[i] = init_vel + accel.acceleration[i]*step_size*i;
+		if(v.velocity[i] > max_speed){
+			v.velocity[i] = max_speed;
+		}
+		init_vel = v.velocity[i]; 
+		// if (v.velocity[i] < -v_max)
+		// {
+		// 	/* code */
+		// }
+	}
+	
 }
-void compute_a(control control, control_parameters params, float tg, float step_size){
+void compute_steer(state v, control steer, float step_size, float tg){
+	float init_angle = v.steer_angle[0];
+	for (int i = 0; i < tg; ++i)
+	{
+		v.steer_angle[i] = init_angle + steer.steer_vel[i]*step_size*i;
+		if(v.steer_angle[i] > max_steerangle){
+			v.steer_angle[i] = max_steerangle;
+		}
+		if (v.steer_angle[i] < -max_steerangle)
+		{
+			v.steer_angle[i] = -max_steerangle;
+		}
+		init_angle = v.steer_angle[i];
+	}
+	
+}
+void compute_states(state v, float step_size, float tg){
+	float init_x = v.x[0], init_y = v.y[0], init_heading = v.heading[0]; 
+	for (int i = 0; i < tg; ++i)
+	{
+		v.x[i] = init_x +  ///////////// ---- here
+	}
+}
+void compute_u(control control, control_parameters params, float tg, float step_size){
 	for (int i = 0; i < tg; ++i)
 	{
 		control.acceleration[i] = params.a2 + 2*params.b2*step_size*i + 3*params.c2*pow(step_size*i ,2) ;
+		control.steer_vel[i] = params.a1 + 2*params.b1*step_size*i + 3*params.c1*pow(step_size*i ,2) ;
 		if(control.acceleration[i] > max_accel){
 			control.acceleration[i] = max_accel;
 		}
 		if(control.acceleration[i] < -max_accel){
 			control.acceleration[i] = -max_accel;
 		}
+		if(control.steer_vel[i] < -max_steervel){
+			control.steer_vel[i] = -max_steervel;
+		}
+		if(control.steer_vel[i] >  max_steervel){
+			control.steer_vel[i] = max_steervel;
+		}
 
 	}
 
 	 
 }
-void compute_u(){
+// void compute_u(){
 
-}
+// }
 void accelerate(int ID ,float accel_input,float angular_vel, float current_vel, float delta_t){
 	if(current_vel < max_speed){
         angular_vel = angular_vel + ((accel_input*delta_t)/wheel_radius); 
