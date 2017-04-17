@@ -103,9 +103,33 @@ void compute_u(control control, control_parameters params, float tg, float step_
 void compute_j(terminal_states t_state, state final, float j, float beta[4], int tg)
 {
 	j = sqrt(beta[0] * (final.x[tg] - t_state.x)*(final.x[tg] - t_state.x) + beta[1]*(final.y[tg] - t_state.y)*(final.y[tg] - t_state.y) + beta[2]*(final.velocity[tg] - t_state.velocity)*(final.velocity[tg] - t_state.velocity) + beta[3]*(final.heading[tg] - t_state.heading)*(final.heading[tg] - t_state.heading));
-
+	 
 }
 
+void compute_cor(float e, control_parameters params, control control, float tg, float step_size, state current_state, terminal_states desired_state)
+{	
+	control_parameters del_params;
+	state updated_state;
+	float jacobian_mat[5][6];
+	for (int i = 0; i < 6; ++i)
+	{
+		compute_u(control, params, tg, step_size);
+		compute_v(updated_state, control, step_size, tg);
+		compute_steer(updated_state, control, step_size, tg);
+		compute_states(updated_state, step_size, tg);
+
+		
+		jacobian_mat[0][i] = (current_state.x[tg] - updated_state.x[tg])/e ;
+		jacobian_mat[1][i] = (current_state.y[tg] - updated_state.y[tg])/e ;
+		jacobian_mat[2][i] = (current_state.heading[tg] - updated_state.heading[tg])/e ;
+		jacobian_mat[3][i] = (current_state.steer_angle[tg] - updated_state.steer_angle[tg])/e ;
+		jacobian_mat[4][i] = (current_state.velocity[tg] - updated_state.velocity[tg])/e ;
+
+	}
+
+
+
+}
 void accelerate(int ID ,float accel_input,float angular_vel, float current_vel, float delta_t){
 	if(current_vel < max_speed){
         angular_vel = angular_vel + ((accel_input*delta_t)/wheel_radius); 
