@@ -144,9 +144,13 @@ void compute_cor(float e, control_parameters params, control control, int tg, fl
 		jacobian_mat(4,i) = (current_state.velocity[tg] - updated_state.velocity[tg])/e ;
 
 	}
-	del_p = jacobian_mat.jacobiSvd(ComputeThinU | computeThinV).solve(del_s);
-
-
+	del_p = jacobian_mat.jacobiSvd(ComputeThinU | ComputeThinV).solve(del_s);
+	params.a1 = del_p[0] + params.a1;
+	params.b1 = del_p[1] + params.b1;
+	params.c1 = del_p[2] + params.c1;
+	params.a2 = del_p[3] + params.a2;
+	params.b2 = del_p[4] + params.b2;
+	params.c2 = del_p[5] + params.c2;
 }
 void accelerate(int ID ,float accel_input,float angular_vel, float current_vel, float delta_t){
 	if(current_vel < max_speed){
