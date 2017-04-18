@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <iostream>
+#include <Eigen/Dense>
 //#include <chrono>
 
 extern "C" {
@@ -10,7 +11,7 @@ extern "C" {
 
 // using ns = chrono::milliseconds;
 // using get_time = chrono::steady_clock;
-
+using namespace Eigen;
 float wheel_radius = 0.079259/2;
 float d=0.0944; //-- 2*d=distance between left and right wheels
 float l=0.3222; //-- l=distance between front and rear wheels
@@ -106,27 +107,44 @@ void compute_j(terminal_states t_state, state final, float j, float beta[4], int
 	 
 }
 
-void compute_cor(float e, control_parameters params, control control, float tg, float step_size, state current_state, terminal_states desired_state)
+void compute_cor(float e, control_parameters params, control control, int tg, float step_size, state current_state, terminal_states desired_state)
 {	
 	control_parameters del_params;
+	control_parameters new_params;
 	state updated_state;
-	float jacobian_mat[5][6];
+	VectorXf del_p(6);
+	VectorXf del_s(5);
+	MatrixXf jacobian_mat(5,6);
 	for (int i = 0; i < 6; ++i)
 	{
-		compute_u(control, params, tg, step_size);
+		new_params = params ; 
+		if(i == 0)
+			new_params.a1 = params.a1 + e;
+		if (i == 1)
+			new_params.b1 = params.b1 + e;
+		if(i == 2)
+			new_params.c1 = params.c1 + e;
+		if (i == 3)
+			new_params.a2 = params.a2 + e;
+		if(i == 4)
+			new_params.b2 = params.b2 + e;
+		if (i == 5)
+			new_params.c2 = params.c2 + e;
+
+		compute_u(control, new_params, tg, step_size);
 		compute_v(updated_state, control, step_size, tg);
 		compute_steer(updated_state, control, step_size, tg);
 		compute_states(updated_state, step_size, tg);
 
 		
-		jacobian_mat[0][i] = (current_state.x[tg] - updated_state.x[tg])/e ;
-		jacobian_mat[1][i] = (current_state.y[tg] - updated_state.y[tg])/e ;
-		jacobian_mat[2][i] = (current_state.heading[tg] - updated_state.heading[tg])/e ;
-		jacobian_mat[3][i] = (current_state.steer_angle[tg] - updated_state.steer_angle[tg])/e ;
-		jacobian_mat[4][i] = (current_state.velocity[tg] - updated_state.velocity[tg])/e ;
+		jacobian_mat(0,i) = (current_state.x[tg] - updated_state.x[tg])/e ;
+		jacobian_mat(1,i) = (current_state.y[tg] - updated_state.y[tg])/e ;
+		jacobian_mat(2,i) = (current_state.heading[tg] - updated_state.heading[tg])/e ;
+		jacobian_mat(3,i) = (current_state.steer_angle[tg] - updated_state.steer_angle[tg])/e ;
+		jacobian_mat(4,i) = (current_state.velocity[tg] - updated_state.velocity[tg])/e ;
 
 	}
-
+	del_p = jacobian_mat.jacobiSvd(ComputeThinU | computeThinV).solve(del_s);
 
 
 }
