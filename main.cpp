@@ -38,15 +38,16 @@ struct control_parameters{
 struct terminal_states{
 	float x, y, heading, steer_angle, velocity;
 };
-void compute_v(state v, control accel, float step_size, int tg){
-	float init_vel = v.velocity[0];
+void compute_v(state v, control accel, float step_size, int tg, float curr_velocity){
+	v.velocity[tg];
+	//float init_vel = v.velocity[0];
 	for (int i = 0; i < tg; ++i)
 	{
-		v.velocity[i] = init_vel + accel.acceleration[i]*step_size*i;
+		v.velocity[i] = curr_velocity + accel.acceleration[i]*step_size*i;
 		if(v.velocity[i] > max_speed){
 			v.velocity[i] = max_speed;
 		}
-		init_vel = v.velocity[i]; 
+		curr_velocity = v.velocity[i]; 
 		// if (v.velocity[i] < -v_max)
 		// {
 		// 	/* code */
@@ -54,11 +55,12 @@ void compute_v(state v, control accel, float step_size, int tg){
 	}
 	
 }
-void compute_steer(state v, control steer, float step_size, int tg){
-	float init_angle = v.steer_angle[0];
+void compute_steer(state v, control steer, float step_size, int tg, float curr_steerangle){
+	v.steer_angle[tg];
+	//float init_angle = v.steer_angle[0];
 	for (int i = 0; i < tg; ++i)
 	{
-		v.steer_angle[i] = init_angle + steer.steer_vel[i]*step_size*i;
+		v.steer_angle[i] = curr_steerangle + steer.steer_vel[i]*step_size*i;
 		if(v.steer_angle[i] > max_steerangle){
 			v.steer_angle[i] = max_steerangle;
 		}
@@ -66,22 +68,28 @@ void compute_steer(state v, control steer, float step_size, int tg){
 		{
 			v.steer_angle[i] = -max_steerangle;
 		}
-		init_angle = v.steer_angle[i];
+		curr_steerangle = v.steer_angle[i];
 	}
 	
 }
-void compute_states(state v, float step_size, int tg){
-	float init_x = v.x[0], init_y = v.y[0], init_heading = v.heading[0]; 
+void compute_states(state v, float step_size, int tg, float curr_x, float curr_y, float curr_heading){
+	v.x[tg];
+	v.y[tg];
+	v.heading[tg];
+	//float init_x = v.x[0], init_y = v.y[0], init_heading = v.heading[0]; 
 	for (int i = 0; i < tg; ++i)
 	{
-		v.heading[i] = init_heading + v.velocity[i] * tan(v.steer_angle[i])*step_size/l;
-		v.x[i] = init_x + v.velocity[i] * cos(v.heading[i]) * step_size;  ///////////// ---- here
-		v.y[i] = init_y + v.velocity[i] * sin(v.heading[i]) * step_size;
+		v.heading[i] = curr_heading + v.velocity[i] * tan(v.steer_angle[i])*step_size/l;
+		v.x[i] = curr_x + v.velocity[i] * cos(v.heading[i]) * step_size;  ///////////// ---- here
+		v.y[i] = curr_y + v.velocity[i] * sin(v.heading[i]) * step_size;
 	}
 }
 void compute_u(control control, control_parameters params, int tg, float step_size){
+	control.acceleration[tg];
+	control.steer_vel[tg];
 	for (int i = 0; i < tg; ++i)
 	{
+
 		control.acceleration[i] = params.a2 + 2*params.b2*step_size*i + 3*params.c2*pow(step_size*i ,2) ;
 		control.steer_vel[i] = params.a1 + 2*params.b1*step_size*i + 3*params.c1*pow(step_size*i ,2) ;
 		if(control.acceleration[i] > max_accel){
@@ -96,7 +104,7 @@ void compute_u(control control, control_parameters params, int tg, float step_si
 		if(control.steer_vel[i] >  max_steervel){
 			control.steer_vel[i] = max_steervel;
 		}
-
+		//std::cout << "accel " << control.acceleration[i] << std::endl ;
 	}
 
 	 
@@ -107,17 +115,23 @@ void compute_j(terminal_states t_state, state final, float j, float beta[4], int
 	 
 }
 
-void compute_cor(float e, control_parameters params, control control, int tg, float step_size, state current_state, terminal_states desired_state, float coeff)
+void compute_cor(float e, control_parameters params, control control, int tg, float step_size, state current_state, terminal_states desired_state, float coeff, float curr_x, float curr_y, float curr_heading, float curr_steerpos, float curr_velocity)
 {	
 	control_parameters del_params;
 	control_parameters new_params;
 	state updated_state;
+	updated_state.x[tg];
+	updated_state.y[tg];
+	updated_state.heading[tg];
+	updated_state.steer_angle[tg];
+	updated_state.velocity[tg];
 	VectorXf del_p(6);
 	VectorXf del_s(5);
 	MatrixXf jacobian_mat(5,6);
 	for (int i = 0; i < 6; ++i)
 	{
 		new_params = params ; 
+
 		if(i == 0)
 			new_params.a1 = params.a1 + e;
 		if (i == 1)
@@ -132,9 +146,11 @@ void compute_cor(float e, control_parameters params, control control, int tg, fl
 			new_params.c2 = params.c2 + e;
 
 		compute_u(control, new_params, tg, step_size);
-		compute_v(updated_state, control, step_size, tg);
-		compute_steer(updated_state, control, step_size, tg);
-		compute_states(updated_state, step_size, tg);
+		std::cout<< " here " << std::endl;            //             problem here 
+		compute_v(updated_state, control, step_size, tg, curr_velocity);
+		
+		compute_steer(updated_state, control, step_size, tg, curr_steerpos);
+		compute_states(updated_state, step_size, tg, curr_x, curr_y, curr_heading);
 
 		
 		jacobian_mat(0,i) = (current_state.x[tg] - updated_state.x[tg])/e ;
@@ -227,8 +243,8 @@ int main(int argc,char* argv[])
         float curr_steerpos = 0.0;
         handle_init(clientID);
         
-        float n = 0.0; // time
-        float step = 0.002; // step size -- 2 ms
+        // float n = 0.0; // time
+        // float step = 0.002; // step size -- 2 ms
         while (simxGetConnectionId(clientID)!=-1)
         {
         	// auto time_now = get_time::now();
@@ -236,12 +252,12 @@ int main(int argc,char* argv[])
 
 
             simxGetObjectPosition(clientID,GPS,-1, &curr_pos[0] ,simx_opmode_oneshot);
-            simxGetObjectPosition(clientID,targethandle, GPS, &targetpos[0] ,simx_opmode_oneshot);
+            simxGetObjectPosition(clientID,targethandle, -1, &targetpos[0] ,simx_opmode_oneshot);
             simxGetObjectVelocity(clientID, GPS, &curr_pos[4], NULL, simx_opmode_oneshot); 
             simxGetJointPosition(clientID, steeringLeftHandle, &curr_steerpos, simx_opmode_oneshot);
             float r = sqrt(targetpos[2]*targetpos[2] + targetpos[1]*targetpos[1]);
             float alpha = atan(targetpos[2]/targetpos[1]);
-            curr_vel = sqrt(curr_pos[5]*curr_pos[5] + curr_pos[4]*curr_pos[4]);
+            curr_vel = sqrt(curr_pos[5]*curr_pos[5] + curr_pos[4]*curr_pos[4]); // current velocity of the vehicle
             alpha = alpha*180/3.14 ;
            
 
@@ -259,34 +275,71 @@ int main(int argc,char* argv[])
       //      		brake(clientID ,deccel ,ang_vel, curr_vel, step);
       //      		steer(clientID,alpha);
       //     	}
-            control_parameters params;
-            control control_signals;
-            state predicted_state;
-            terminal_states des_state;
-
-            int tg;
-            float step_size;
-            float J;
-            float epsilon;
+            int tg = 20;
+            float step_size = 0.002;
+            float J = 0.0;
+            float epsilon = 0.1;
             int counter = 0;
-            float beta[4];
-            float tuning_coeff;
-            float e;
+            float beta[4] = {0.01, 0.01, 0.01, 0.01};
+            float tuning_coeff = 1.0;
+            float e = 0.01;
+
+            control_parameters params;
+            params.a1 = 0.1;
+            params.b1 = 0.1;
+            params.c1 = 0.1;
+            params.a2 = 0.1;
+            params.b2 = 0.1;
+            params.c2 = 0.1;
+            control control_signals;
+            // control_signals.acceleration[tg];
+            // control_signals.steer_vel[tg];
+            state predicted_state;
+            // predicted_state.x[tg];
+            // predicted_state.y[tg];
+            // predicted_state.heading[tg];
+            // predicted_state.steer_angle[tg];
+            // predicted_state.velocity[tg];
+            // predicted_state.x[0] = curr_pos[1];
+            // predicted_state.y[0] = curr_pos[2];
+            float curr_heading = atan(curr_pos[2]/curr_pos[1]);
+            // predicted_state.steer_angle[0] = curr_steerpos;
+            // predicted_state.velocity[0] = curr_vel;
+
+
+            terminal_states des_state;
+            des_state.x = targetpos[0];
+            des_state.y = targetpos[1];
+            des_state.heading = atan(targetpos[1]/targetpos[0]);
+            des_state.steer_angle = 0.0 ; // steer zero
+            des_state.velocity = 0.0 ; // end vel zero
+
+            
+
             do
-            {
+            {	
             	compute_u(control_signals, params, tg, step_size);
-            	compute_v(predicted_state, control_signals, step_size, tg);
-				compute_steer(predicted_state, control_signals, step_size, tg);
-				compute_states(predicted_state, step_size, tg);
+            	
+            	compute_v(predicted_state, control_signals, step_size, tg, curr_vel);
+            	
+				compute_steer(predicted_state, control_signals, step_size, tg, curr_steerpos);
+				compute_states(predicted_state, step_size, tg, curr_pos[1], curr_pos[2], curr_heading);
 				compute_j(des_state, predicted_state, J, beta, tg);
-				compute_cor(e, params, control_signals, tg, step_size, predicted_state, des_state, tuning_coeff);
+
+				compute_cor(e, params, control_signals, tg, step_size, predicted_state, des_state, tuning_coeff, curr_pos[0], curr_pos[1], curr_heading, curr_steerpos, curr_vel);
+				std::cout << " print " << counter << std::endl;
 				counter++;
+
             }while(J >= epsilon || counter < 20);
 
 
-            n = n+step;
+            // n = n+step;
             extApi_sleepMs(2);
-            std::cout << " n " << n << std::endl;
+            std::cout << " J " << J << std::endl;
+            std::cout << " params " << params.a1 << std::endl;
+            std::cout << " final state x : y " << predicted_state.x[tg]<<" , "<<predicted_state.y[tg] << std::endl;
+            std::cout << " control_signals " << control_signals.acceleration[0] << " , "<< control_signals.steer_vel[0] << std::endl;
+            //break;
         }
         simxFinish(clientID);
     }
