@@ -38,7 +38,7 @@ struct control_parameters{
 struct terminal_states{
 	float x, y, heading, steer_angle, velocity;
 };
-void compute_v(state v, control accel, float step_size, float tg){
+void compute_v(state v, control accel, float step_size, int tg){
 	float init_vel = v.velocity[0];
 	for (int i = 0; i < tg; ++i)
 	{
@@ -54,7 +54,7 @@ void compute_v(state v, control accel, float step_size, float tg){
 	}
 	
 }
-void compute_steer(state v, control steer, float step_size, float tg){
+void compute_steer(state v, control steer, float step_size, int tg){
 	float init_angle = v.steer_angle[0];
 	for (int i = 0; i < tg; ++i)
 	{
@@ -70,7 +70,7 @@ void compute_steer(state v, control steer, float step_size, float tg){
 	}
 	
 }
-void compute_states(state v, float step_size, float tg){
+void compute_states(state v, float step_size, int tg){
 	float init_x = v.x[0], init_y = v.y[0], init_heading = v.heading[0]; 
 	for (int i = 0; i < tg; ++i)
 	{
@@ -79,7 +79,7 @@ void compute_states(state v, float step_size, float tg){
 		v.y[i] = init_y + v.velocity[i] * sin(v.heading[i]) * step_size;
 	}
 }
-void compute_u(control control, control_parameters params, float tg, float step_size){
+void compute_u(control control, control_parameters params, int tg, float step_size){
 	for (int i = 0; i < tg; ++i)
 	{
 		control.acceleration[i] = params.a2 + 2*params.b2*step_size*i + 3*params.c2*pow(step_size*i ,2) ;
@@ -107,7 +107,7 @@ void compute_j(terminal_states t_state, state final, float j, float beta[4], int
 	 
 }
 
-void compute_cor(float e, control_parameters params, control control, int tg, float step_size, state current_state, terminal_states desired_state)
+void compute_cor(float e, control_parameters params, control control, int tg, float step_size, state current_state, terminal_states desired_state, float coeff)
 {	
 	control_parameters del_params;
 	control_parameters new_params;
@@ -145,12 +145,12 @@ void compute_cor(float e, control_parameters params, control control, int tg, fl
 
 	}
 	del_p = jacobian_mat.jacobiSvd(ComputeThinU | ComputeThinV).solve(del_s);
-	params.a1 = del_p[0] + params.a1;
-	params.b1 = del_p[1] + params.b1;
-	params.c1 = del_p[2] + params.c1;
-	params.a2 = del_p[3] + params.a2;
-	params.b2 = del_p[4] + params.b2;
-	params.c2 = del_p[5] + params.c2;
+	params.a1 = -coeff*del_p[0] + params.a1;
+	params.b1 = -coeff*del_p[1] + params.b1;
+	params.c1 = -coeff*del_p[2] + params.c1;
+	params.a2 = -coeff*del_p[3] + params.a2;
+	params.b2 = -coeff*del_p[4] + params.b2;
+	params.c2 = -coeff*del_p[5] + params.c2;
 }
 void accelerate(int ID ,float accel_input,float angular_vel, float current_vel, float delta_t){
 	if(current_vel < max_speed){
@@ -246,19 +246,44 @@ int main(int argc,char* argv[])
            
 
           	//std::cout << " r " << r << " alpha "<< alpha << " Velocity :"<< curr_steerpos*180/3.14 <<std::endl;
-		    if(r > 0.8 && curr_vel < 1.0) 
-           {	
-    			accelerate(clientID ,accel , ang_vel, curr_vel , step);
-    			steer(clientID,alpha);
+		    // if(r > 0.8 && curr_vel < 1.0) 
+      //      {	
+    		// 	accelerate(clientID ,accel , ang_vel, curr_vel , step);
+    		// 	steer(clientID,alpha);
     			
-    			//std::cout << "curr_vel "<< curr_vel<< std::endl;       		  
-            }
-           else
-           {	
-           		//std::cout << "brake"<< curr_vel<< std::endl;
-           		brake(clientID ,deccel ,ang_vel, curr_vel, step);
-           		steer(clientID,alpha);
-          	}
+    		// 	//std::cout << "curr_vel "<< curr_vel<< std::endl;       		  
+      //       }
+      //      else
+      //      {	
+      //      		//std::cout << "brake"<< curr_vel<< std::endl;
+      //      		brake(clientID ,deccel ,ang_vel, curr_vel, step);
+      //      		steer(clientID,alpha);
+      //     	}
+            control_parameters params;
+            control control_signals;
+            state predicted_state;
+            terminal_states des_state;
+
+            int tg;
+            float step_size;
+            float J;
+            float epsilon;
+            int counter = 0;
+            float beta[4];
+            float tuning_coeff;
+            float e;
+            do
+            {
+            	compute_u(control_signals, params, tg, step_size);
+            	compute_v(predicted_state, control_signals, step_size, tg);
+				compute_steer(predicted_state, control_signals, step_size, tg);
+				compute_states(predicted_state, step_size, tg);
+				compute_j(des_state, predicted_state, J, beta, tg);
+				compute_cor(e, params, control_signals, tg, step_size, predicted_state, des_state, tuning_coeff);
+				counter++;
+            }while(J >= epsilon || counter < 20);
+
+
             n = n+step;
             extApi_sleepMs(2);
             std::cout << " n " << n << std::endl;
